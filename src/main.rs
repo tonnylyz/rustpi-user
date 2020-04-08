@@ -20,11 +20,14 @@ macro_rules! println {
     })
 }
 
-
+mod config;
 mod print;
 mod syscall;
 mod fork;
+mod page_table;
+mod vm_descriptor;
 
+use config::*;
 use fork::*;
 use syscall::*;
 
@@ -33,6 +36,8 @@ fn _start() -> ! {
   main();
   panic!("main returned");
 }
+
+
 
 fn main() {
   println!("fktest started pid {}", getpid());

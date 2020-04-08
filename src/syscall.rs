@@ -1,3 +1,5 @@
+use crate::page_table::*;
+
 global_asm!(include_str!("syscall.S"));
 
 #[derive(Debug)]
@@ -28,13 +30,13 @@ extern "C" {
   fn syscall_3();
   fn syscall_4(pid: u16) -> isize;
   fn syscall_5(pid: u16, value: usize, sp: usize) -> isize;
-  fn syscall_6(pid: u16, va: usize, perm: usize) -> isize;
-  fn syscall_7(src_pid: u16, src_va: usize, dst_pid: u16, dst_va: usize, perm: usize) -> isize;
+  fn syscall_6(pid: u16, va: usize, attr: usize) -> isize;
+  fn syscall_7(src_pid: u16, src_va: usize, dst_pid: u16, dst_va: usize, attr: usize) -> isize;
   fn syscall_8(pid: u16, va: usize) -> isize;
   fn syscall_9() -> isize;
   fn syscall_10(pid: u16, status: usize) -> isize;
   fn syscall_11(dst_va: usize);
-  fn syscall_12(pid: u16, value: usize, src_va: usize, perm: usize) -> isize;
+  fn syscall_12(pid: u16, value: usize, src_va: usize, attr: usize) -> isize;
 }
 
 fn num2err<T>(n: isize) -> Result<T, SystemCallError> {
@@ -83,8 +85,9 @@ pub fn process_set_exception_handler(pid: u16, value: usize, sp: usize) -> Resul
   }
 }
 
-pub fn mem_alloc(pid: u16, va: usize, perm: usize) -> Result<(), SystemCallError> {
-  let i = unsafe { syscall_6(pid, va, perm) };
+pub fn mem_alloc(pid: u16, va: usize, attr: PageTableEntryAttr) -> Result<(), SystemCallError> {
+  let attr = ArchPageTableEntryAttr::from(attr).to_usize();
+  let i = unsafe { syscall_6(pid, va, attr) };
   if i == 0 {
     Ok(())
   } else {
@@ -92,8 +95,9 @@ pub fn mem_alloc(pid: u16, va: usize, perm: usize) -> Result<(), SystemCallError
   }
 }
 
-pub fn mem_map(src_pid: u16, src_va: usize, dst_pid: u16, dst_va: usize, perm: usize) -> Result<(), SystemCallError> {
-  let i = unsafe { syscall_7(src_pid, src_va, dst_pid, dst_va, perm) };
+pub fn mem_map(src_pid: u16, src_va: usize, dst_pid: u16, dst_va: usize, attr: PageTableEntryAttr) -> Result<(), SystemCallError> {
+  let attr = ArchPageTableEntryAttr::from(attr).to_usize();
+  let i = unsafe { syscall_7(src_pid, src_va, dst_pid, dst_va, attr) };
   if i == 0 {
     Ok(())
   } else {
@@ -133,8 +137,9 @@ pub fn ipc_receive(dst_va: usize) {
   unsafe { syscall_11(dst_va); }
 }
 
-pub fn ipc_can_send(pid: u16, value: usize, src_va: usize, perm: usize) -> Result<(), SystemCallError> {
-  let i = unsafe { syscall_12(pid, value, src_va, perm) };
+pub fn ipc_can_send(pid: u16, value: usize, src_va: usize, attr: PageTableEntryAttr) -> Result<(), SystemCallError> {
+  let attr = ArchPageTableEntryAttr::from(attr).to_usize();
+  let i = unsafe { syscall_12(pid, value, src_va, attr) };
   if i == 0 {
     Ok(())
   } else {
