@@ -1,36 +1,59 @@
 #![feature(asm)]
 #![feature(global_asm)]
+#![feature(panic_info_message)]
+#![feature(format_args_nl)]
+#![feature(core_intrinsics)]
 #![no_std]
 #![no_main]
 
-#[panic_handler]
-fn panic_handler(info: &core::panic::PanicInfo) -> ! {
-    loop {}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::print::print_arg(format_args!($($arg)*)));
 }
 
-global_asm!(include_str!("syscall.S"));
-
-extern "C" {
-    /* Note:
-       Linux(Aarch64) use x0~x7 for syscall arguments
-       use x8 for syscall number
-       use x0, x1 for return value
-    */
-    fn msyscall(x0: usize, x1: usize, x2: usize, x3: usize,
-                x4: usize, x5: usize, x6: usize, x7: usize, no: usize) -> usize;
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ({
+        $crate::print::print_arg(format_args_nl!($($arg)*));
+    })
 }
 
-fn putc(c: char) {
-    unsafe { msyscall(c as usize, 0, 0,0,0,0,0,0,1); }
-}
 
-fn puts(s: &'static str) {
-    for c in s.chars() {
-        putc(c);
-    }
-}
+mod print;
+mod syscall;
+mod fork;
+
+use fork::*;
+use syscall::*;
 
 #[no_mangle]
-fn _start() {
-    loop { puts("Hello world!\n"); }
+fn _start() -> ! {
+  main();
+  panic!("main returned");
+}
+
+fn main() {
+  println!("fktest started pid {}", getpid());
+  let mut a = 0;
+  let mut id = 0;
+  id = fork();
+  if id == 0 {
+    id = fork();
+    if id == 0 {
+      a += 3;
+      loop {
+        println!("\t\tthis is child2 :a:{}", a);
+      }
+    }
+    a += 2;
+    loop {
+      println!("\tthis is child :a:{}", a);
+    }
+  }
+  a += 1;
+  loop {
+    println!("this is father :a:{}", a);
+  }
 }
