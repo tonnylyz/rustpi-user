@@ -2,18 +2,18 @@ use super::config::*;
 use super::vm_descriptor::*;
 
 fn read_directory_entry(l1_index: usize) -> u64 {
-  let l1x = RECURSIVE_PAGE_TABLE_BASE >> PAGE_TABLE_L1_SHIFT;
-  let l2x = RECURSIVE_PAGE_TABLE_BASE >> PAGE_TABLE_L1_SHIFT;
+  let l1x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
+  let l2x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
   let l3x = l1_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BASE + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
 fn read_level_1_entry(l1_index: usize, l2_index: usize) -> u64 {
-  let l1x = RECURSIVE_PAGE_TABLE_BASE >> PAGE_TABLE_L1_SHIFT;
+  let l1x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
   let l2x = l1_index;
   let l3x = l2_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BASE + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
@@ -21,7 +21,7 @@ fn read_level_2_entry(l1_index: usize, l2_index: usize, l3_index: usize) -> u64 
   let l1x = l1_index;
   let l2x = l2_index;
   let l3x = l3_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BASE + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
@@ -180,5 +180,30 @@ pub fn query(va: usize) -> Option<PageTableEntryAttr> {
     Some(PageTableEntryAttr::from(ArchPageTableEntryAttr(pte)))
   } else {
     None
+  }
+}
+
+pub fn traverse<F>(f: F) where F: Fn(usize, PageTableEntryAttr) -> () {
+  for l1x in 0..(PAGE_SIZE / WORD_SIZE) {
+    let l1e = read_directory_entry(l1x);
+    if l1e & 0b11 == 0 {
+      continue;
+    }
+    for l2x in 0..(PAGE_SIZE / WORD_SIZE) {
+      let l2e = read_level_1_entry(l1x, l2x);
+      if l2e & 0b11 == 0{
+        continue;
+      }
+      for l3x in 0..(PAGE_SIZE / WORD_SIZE) {
+        let va = (l1x << PAGE_TABLE_L1_SHIFT) + (l2x << PAGE_TABLE_L2_SHIFT) + (l3x << PAGE_TABLE_L3_SHIFT);
+        if va >= TRAVERSE_LIMIT {
+          return;
+        }
+        let l3e = read_level_2_entry(l1x, l2x, l3x);
+        if l3e & 0b11 != 0 {
+          f(va, PageTableEntryAttr::from(ArchPageTableEntryAttr(l3e)));
+        }
+      }
+    }
   }
 }

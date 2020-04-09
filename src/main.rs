@@ -22,6 +22,7 @@ macro_rules! println {
 
 mod config;
 mod print;
+mod page_fault;
 mod syscall;
 mod fork;
 mod page_table;

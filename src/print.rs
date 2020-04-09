@@ -1,5 +1,5 @@
 use core::fmt;
-use crate::syscall::putc;
+use crate::syscall::{putc, process_destroy};
 
 struct Writer;
 
@@ -28,5 +28,6 @@ fn panic_handler(info: &core::panic::PanicInfo) -> ! {
   } else {
     println!("\nUser space panic!");
   }
+  process_destroy(0);
   loop {}
 }

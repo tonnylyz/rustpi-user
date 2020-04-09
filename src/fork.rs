@@ -1,8 +1,9 @@
 use crate::syscall::*;
 use crate::page_table::*;
 use crate::config::*;
+use crate::page_fault::{set_page_fault_handler, page_fault_handler};
 
-fn duppage(pid: u16, va: usize, pte: PageTableEntryAttr) {
+fn duplicate_page(pid: u16, va: usize, pte: PageTableEntryAttr) {
   if pte.shared {
     mem_map(0, va, pid, va, pte);
   } else if pte.writable && !pte.copy_on_write {
@@ -13,21 +14,27 @@ fn duppage(pid: u16, va: usize, pte: PageTableEntryAttr) {
   }
 }
 
+extern "C" {
+  fn asm_page_fault_handler() -> !;
+}
+
 pub fn fork() -> i32 {
+  set_page_fault_handler(page_fault_handler as usize);
   match process_alloc() {
-    Ok(pid) => {
-    if pid == 0 {
+    Ok(pid) => if pid == 0 {
       0
     } else {
-      for va in (0..LIMIT).step_by(PAGE_SIZE) {
-        if let Some(pte) = query(va) {
-          duppage(pid, va, pte);
-        }
-      }
-      // TODO: install page fault handler
+      traverse(|va, attr| {
+        duplicate_page(pid, va, attr)
+      });
+      mem_alloc(pid, EXCEPTION_STACK_BTM, PTE_W);
+      process_set_exception_handler(pid, asm_page_fault_handler as usize, EXCEPTION_STACK_TOP);
       process_set_status(pid, ProcessStatus::PsRunnable);
       pid as i32
-    }},
-    Err(e) => { println!("process_alloc error {:?}", e); -1 },
+    },
+    Err(e) => {
+      println!("process_alloc error {:?}", e);
+      -1
+    }
   }
 }

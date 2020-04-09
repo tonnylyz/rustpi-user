@@ -1,6 +1,10 @@
-pub const LIMIT: usize = 0x8000_0000;
-const STACK_TOP: usize = 0x8000_0000;
-pub const RECURSIVE_PAGE_TABLE_BASE: usize = 0x8000_0000;
+pub const RECURSIVE_PAGE_TABLE_TOP: usize = 0x80_0000_0000;
+pub const RECURSIVE_PAGE_TABLE_BTM: usize = 0x7f_c000_0000;
+pub const EXCEPTION_STACK_TOP: usize = 0x7f_c000_0000;
+pub const EXCEPTION_STACK_BTM: usize = 0x7f_bfff_f000;
+pub const TRAVERSE_LIMIT: usize = 0x7f_8000_0000;
+pub const STACK_TOP: usize = 0x7f_8000_0000;
+pub const STACK_BTM: usize = 0x7f_7fff_f000;
 
 pub const PAGE_SIZE: usize = 4096;
 
