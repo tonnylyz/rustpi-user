@@ -1,6 +1,7 @@
-use crate::syscall::{mem_alloc, process_set_exception_handler, mem_map, mem_unmap, process_set_context_frame};
+use crate::syscall::*;
 use crate::config::*;
-use crate::page_table::{PTE_W, query, PTE_COW};
+use crate::page_table::*;
+
 global_asm!(include_str!("page_fault.S"));
 
 pub fn page_fault_handler(va: usize) {

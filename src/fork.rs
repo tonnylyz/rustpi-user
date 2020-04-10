@@ -1,7 +1,8 @@
 use crate::syscall::*;
 use crate::page_table::*;
 use crate::config::*;
-use crate::page_fault::{set_page_fault_handler, page_fault_handler};
+use crate::page_fault::*;
+use crate::ipc::*;
 
 fn duplicate_page(pid: u16, va: usize, pte: PageTableEntryAttr) {
   if pte.shared {
@@ -22,6 +23,7 @@ pub fn fork() -> i32 {
   set_page_fault_handler(page_fault_handler as usize);
   match process_alloc() {
     Ok(pid) => if pid == 0 {
+      set_self_ipc(getpid());
       0
     } else {
       traverse(|va, attr| {

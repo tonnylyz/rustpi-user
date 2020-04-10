@@ -37,7 +37,6 @@ extern "C" {
   fn syscall_10(pid: u16, status: usize) -> isize;
   fn syscall_11(dst_va: usize);
   fn syscall_12(pid: u16, value: usize, src_va: usize, attr: usize) -> isize;
-  fn syscall_13(addr: usize);
 }
 
 fn num2err<T>(n: isize) -> Result<T, SystemCallError> {
@@ -147,5 +146,3 @@ pub fn ipc_can_send(pid: u16, value: usize, src_va: usize, attr: PageTableEntryA
     num2err(i)
   }
 }
-
-pub fn process_set_context_frame(addr: usize) { unsafe { syscall_13(addr); } }

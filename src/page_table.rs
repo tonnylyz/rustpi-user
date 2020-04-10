@@ -130,6 +130,7 @@ impl core::ops::Sub<PageTableEntryAttr> for PageTableEntryAttr {
 pub struct ArchPageTableEntryAttr(u64);
 
 impl ArchPageTableEntryAttr {
+  pub fn new(value: u64) -> Self { ArchPageTableEntryAttr(value) }
   pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
