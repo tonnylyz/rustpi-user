@@ -1,17 +1,16 @@
-pub const RECURSIVE_PAGE_TABLE_TOP: usize = 0x80_0000_0000;
 pub const RECURSIVE_PAGE_TABLE_BTM: usize = 0x7f_c000_0000;
 
-pub const PROCESS_NUMBER: usize = 1 << 10;
 pub const IPC_PCB_SIZE: usize = 32;
-pub const IPC_LIST_TOP: usize = 0x7f_a000_8000;
 pub const IPC_LIST_BTM: usize = 0x7f_a000_0000;
 
-pub const EXCEPTION_STACK_TOP: usize = 0x7f_a000_0000;
-pub const EXCEPTION_STACK_BTM: usize = 0x7f_9fff_f000;
+pub const USER_LIMIT: usize = 0x7f_a000_0000;
+
+pub const EXCEPTION_STACK_TOP: usize = 0x7f_8000_1000;
 
 pub const TRAVERSE_LIMIT: usize = 0x7f_8000_0000;
 pub const STACK_TOP: usize = 0x7f_8000_0000;
-pub const STACK_BTM: usize = 0x7f_7fff_f000;
+
+pub const HEAP_BTM: usize = 0x10_0000_0000;
 
 pub const PAGE_SIZE: usize = 4096;
 

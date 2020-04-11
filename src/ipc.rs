@@ -1,16 +1,16 @@
-use crate::syscall::*;
-use crate::page_table::*;
 use crate::config::*;
+use crate::page_table::*;
+use crate::syscall::*;
 
 #[repr(C, align(32))]
 #[derive(Copy, Clone, Debug)]
-pub struct InterProcessComm {
+pub struct Ipc {
   pub index: u16,
-  pub ipc_from: u16,
-  pub ipc_receiving: bool,
-  pub ipc_value: usize,
-  pub ipc_dst_addr: usize,
-  pub ipc_dst_attr: usize,
+  pub from: u16,
+  pub receiving: bool,
+  pub value: usize,
+  pub address: usize,
+  pub attribute: usize,
 }
 
 static mut IPC_SELF: usize = 0;
@@ -21,26 +21,25 @@ pub fn set_self_ipc(pid: u16) {
   }
 }
 
-pub fn get_self_ipc() -> *const InterProcessComm {
+pub fn get_self_ipc() -> *const Ipc {
   unsafe {
-    IPC_SELF as *const InterProcessComm
+    IPC_SELF as *const Ipc
   }
 }
 
-
-pub fn send(whom: u16, value: usize, src_va: usize, attr: PageTableEntryAttr) {
+pub fn send(whom: u16, value: usize, src_va: usize, attr: EntryAttribute) {
   loop {
     match ipc_can_send(whom, value, src_va, attr) {
-      Ok(_) => {break},
-      Err(SystemCallError::SceIpcNotReceiving) => { process_yield(); },
-      Err(e) => { println!("ipc send {:?}", e) },
+      Ok(_) => { break; }
+      Err(crate::syscall::Error::IpcNotReceivingError) => { process_yield(); }
+      Err(e) => { println!("ipc send {:?}", e) }
     }
   }
 }
 
-pub fn receive(dst_va: usize) -> (u16, usize, ArchPageTableEntryAttr) {
+pub fn receive(dst_va: usize) -> (u16, usize, Aarch64EntryAttribute) {
   ipc_receive(dst_va);
   unsafe {
-    ((*get_self_ipc()).ipc_from, (*get_self_ipc()).ipc_value, ArchPageTableEntryAttr::new(0))
+    ((*get_self_ipc()).from, (*get_self_ipc()).value, Aarch64EntryAttribute::new((*get_self_ipc()).attribute as u64))
   }
 }

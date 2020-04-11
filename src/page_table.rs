@@ -46,97 +46,99 @@ fn read_page_table_entry(va: usize) -> Option<u64> {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct PageTableEntryAttr {
+pub struct EntryAttribute {
   pub executable: bool,
   pub writable: bool,
   pub copy_on_write: bool,
   pub shared: bool,
 }
 
-impl Default for PageTableEntryAttr {
-  fn default() -> Self {
-    PageTableEntryAttr {
-      executable: false,
-      writable: false,
+impl EntryAttribute {
+  #[allow(dead_code)]
+  pub const fn default() -> Self {
+    EntryAttribute {
+      executable: true,
+      writable: true,
       copy_on_write: false,
-      shared: false
+      shared: false,
     }
   }
-}
-
-impl PageTableEntryAttr {
+  #[allow(dead_code)]
   pub const fn executable() -> Self {
-    PageTableEntryAttr {
+    EntryAttribute {
       executable: true,
       writable: false,
       copy_on_write: false,
-      shared: false
+      shared: false,
     }
   }
+  #[allow(dead_code)]
   pub const fn writable() -> Self {
-    PageTableEntryAttr {
+    EntryAttribute {
       executable: false,
       writable: true,
       copy_on_write: false,
-      shared: false
+      shared: false,
     }
   }
+  #[allow(dead_code)]
   pub const fn copy_on_write() -> Self {
-    PageTableEntryAttr {
+    EntryAttribute {
       executable: false,
       writable: false,
       copy_on_write: true,
-      shared: false
+      shared: false,
     }
   }
+  #[allow(dead_code)]
   pub const fn shared() -> Self {
-    PageTableEntryAttr {
+    EntryAttribute {
       executable: false,
       writable: false,
       copy_on_write: false,
-      shared: true
+      shared: true,
     }
   }
 }
 
-impl core::ops::Add<PageTableEntryAttr> for PageTableEntryAttr {
-  type Output = PageTableEntryAttr;
+impl core::ops::Add<EntryAttribute> for EntryAttribute {
+  type Output = EntryAttribute;
 
-  fn add(self, rhs: PageTableEntryAttr) -> Self::Output {
-    PageTableEntryAttr {
+  fn add(self, rhs: EntryAttribute) -> Self::Output {
+    EntryAttribute {
       executable: self.executable || rhs.executable,
       writable: self.writable || rhs.writable,
       copy_on_write: self.copy_on_write || rhs.copy_on_write,
-      shared: self.shared || rhs.shared
+      shared: self.shared || rhs.shared,
     }
   }
 }
 
 
-impl core::ops::Sub<PageTableEntryAttr> for PageTableEntryAttr {
-  type Output = PageTableEntryAttr;
+impl core::ops::Sub<EntryAttribute> for EntryAttribute {
+  type Output = EntryAttribute;
 
-  fn sub(self, rhs: PageTableEntryAttr) -> Self::Output {
-    PageTableEntryAttr {
-      executable: self.executable &&! rhs.executable,
-      writable: self.writable &&! rhs.writable,
-      copy_on_write: self.copy_on_write &&! rhs.copy_on_write,
-      shared: self.shared &&! rhs.shared
+  fn sub(self, rhs: EntryAttribute) -> Self::Output {
+    EntryAttribute {
+      executable: self.executable && !rhs.executable,
+      writable: self.writable && !rhs.writable,
+      copy_on_write: self.copy_on_write && !rhs.copy_on_write,
+      shared: self.shared && !rhs.shared,
     }
   }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ArchPageTableEntryAttr(u64);
+pub struct Aarch64EntryAttribute(u64);
 
-impl ArchPageTableEntryAttr {
-  pub fn new(value: u64) -> Self { ArchPageTableEntryAttr(value) }
+impl Aarch64EntryAttribute {
+  pub fn new(value: u64) -> Self { Aarch64EntryAttribute(value) }
   pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
-impl core::convert::From<PageTableEntryAttr> for ArchPageTableEntryAttr {
-  fn from(pte: PageTableEntryAttr) -> Self {
-    ArchPageTableEntryAttr(
+impl core::convert::From<EntryAttribute> for Aarch64EntryAttribute {
+  fn from(pte: EntryAttribute) -> Self {
+    Aarch64EntryAttribute(
       (if pte.writable {
         PAGE_DESCRIPTOR::AP::RW_EL1_EL0
       } else {
@@ -158,33 +160,39 @@ impl core::convert::From<PageTableEntryAttr> for ArchPageTableEntryAttr {
   }
 }
 
-impl core::convert::From<ArchPageTableEntryAttr> for PageTableEntryAttr {
-  fn from(apte: ArchPageTableEntryAttr) -> Self {
+impl core::convert::From<Aarch64EntryAttribute> for EntryAttribute {
+  fn from(apte: Aarch64EntryAttribute) -> Self {
     use register::*;
     let reg = LocalRegisterCopy::<u64, PAGE_DESCRIPTOR::Register>::new(apte.0);
-    PageTableEntryAttr {
+    EntryAttribute {
       executable: !reg.is_set(PAGE_DESCRIPTOR::UXN),
       writable: reg.matches_all(PAGE_DESCRIPTOR::AP::RW_EL1_EL0),
       copy_on_write: reg.is_set(PAGE_DESCRIPTOR::COW),
-      shared: reg.is_set(PAGE_DESCRIPTOR::LIB)
+      shared: reg.is_set(PAGE_DESCRIPTOR::LIB),
     }
   }
 }
 
-pub const PTE_X: PageTableEntryAttr = PageTableEntryAttr::executable();
-pub const PTE_W: PageTableEntryAttr = PageTableEntryAttr::writable();
-pub const PTE_COW: PageTableEntryAttr = PageTableEntryAttr::copy_on_write();
-pub const PTE_LIB: PageTableEntryAttr = PageTableEntryAttr::shared();
+#[allow(dead_code)]
+pub const PTE_DEFAULT: EntryAttribute = EntryAttribute::default();
+#[allow(dead_code)]
+pub const PTE_X: EntryAttribute = EntryAttribute::executable();
+#[allow(dead_code)]
+pub const PTE_W: EntryAttribute = EntryAttribute::writable();
+#[allow(dead_code)]
+pub const PTE_COW: EntryAttribute = EntryAttribute::copy_on_write();
+#[allow(dead_code)]
+pub const PTE_LIB: EntryAttribute = EntryAttribute::shared();
 
-pub fn query(va: usize) -> Option<PageTableEntryAttr> {
+pub fn query(va: usize) -> Option<EntryAttribute> {
   if let Some(pte) = read_page_table_entry(va) {
-    Some(PageTableEntryAttr::from(ArchPageTableEntryAttr(pte)))
+    Some(EntryAttribute::from(Aarch64EntryAttribute(pte)))
   } else {
     None
   }
 }
 
-pub fn traverse<F>(f: F) where F: Fn(usize, PageTableEntryAttr) -> () {
+pub fn traverse<F>(limit: usize, f: F) where F: Fn(usize, EntryAttribute) -> () {
   for l1x in 0..(PAGE_SIZE / WORD_SIZE) {
     let l1e = read_directory_entry(l1x);
     if l1e & 0b11 == 0 {
@@ -192,17 +200,17 @@ pub fn traverse<F>(f: F) where F: Fn(usize, PageTableEntryAttr) -> () {
     }
     for l2x in 0..(PAGE_SIZE / WORD_SIZE) {
       let l2e = read_level_1_entry(l1x, l2x);
-      if l2e & 0b11 == 0{
+      if l2e & 0b11 == 0 {
         continue;
       }
       for l3x in 0..(PAGE_SIZE / WORD_SIZE) {
         let va = (l1x << PAGE_TABLE_L1_SHIFT) + (l2x << PAGE_TABLE_L2_SHIFT) + (l3x << PAGE_TABLE_L3_SHIFT);
-        if va >= TRAVERSE_LIMIT {
+        if va >= limit {
           return;
         }
         let l3e = read_level_2_entry(l1x, l2x, l3x);
         if l3e & 0b11 != 0 {
-          f(va, PageTableEntryAttr::from(ArchPageTableEntryAttr(l3e)));
+          f(va, EntryAttribute::from(Aarch64EntryAttribute(l3e)));
         }
       }
     }

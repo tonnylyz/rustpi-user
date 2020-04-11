@@ -1,5 +1,6 @@
 use core::fmt;
-use crate::syscall::{putc, process_destroy};
+
+use crate::syscall::{process_destroy, putc};
 
 struct Writer;
 
@@ -24,10 +25,17 @@ pub fn print_arg(args: fmt::Arguments) {
 #[panic_handler]
 fn panic_handler(info: &core::panic::PanicInfo) -> ! {
   if let Some(m) = info.message() {
-    println!("\nUser space panic: {} \n {}", m, info.location().unwrap());
+    if let Some(l) = info.location() {
+      println!("\nuser panic: {} \n {}", m, l);
+    } else {
+      println!("\nuser panic: {}", m);
+    }
   } else {
-    println!("\nUser space panic!");
+    println!("\nuser panic!");
   }
-  process_destroy(0);
+  match process_destroy(0) {
+    Ok(_) => {}
+    Err(_) => { println!("user: panic_handler: process_destroy failed"); }
+  }
   loop {}
 }

@@ -1,17 +1,28 @@
-use crate::syscall::*;
-use crate::page_table::*;
 use crate::config::*;
-use crate::page_fault::*;
-use crate::ipc::*;
+use crate::ipc::set_self_ipc;
+use crate::page_table::*;
+use crate::syscall::*;
 
-fn duplicate_page(pid: u16, va: usize, pte: PageTableEntryAttr) {
+fn duplicate_page(pid: u16, va: usize, pte: EntryAttribute) {
   if pte.shared {
-    mem_map(0, va, pid, va, pte);
+    match mem_map(0, va, pid, va, pte) {
+      Ok(_) => {}
+      Err(_) => { panic!("duplicate_page: mem_map failed") }
+    }
   } else if pte.writable && !pte.copy_on_write {
-    mem_map(0, va, pid, va, pte - PTE_W + PTE_COW);
-    mem_map(0, va, 0, va, pte - PTE_W + PTE_COW);
+    match mem_map(0, va, pid, va, pte - PTE_W + PTE_COW) {
+      Ok(_) => {}
+      Err(_) => { panic!("duplicate_page: mem_map failed") }
+    }
+    match mem_map(0, va, 0, va, pte - PTE_W + PTE_COW) {
+      Ok(_) => {}
+      Err(_) => { panic!("duplicate_page: mem_map failed") }
+    }
   } else {
-    mem_map(0, va, pid, va, pte);
+    match mem_map(0, va, pid, va, pte) {
+      Ok(_) => {}
+      Err(_) => { panic!("duplicate_page: mem_map failed") }
+    }
   }
 }
 
@@ -20,18 +31,26 @@ extern "C" {
 }
 
 pub fn fork() -> i32 {
-  set_page_fault_handler(page_fault_handler as usize);
   match process_alloc() {
     Ok(pid) => if pid == 0 {
       set_self_ipc(getpid());
       0
     } else {
-      traverse(|va, attr| {
+      traverse(TRAVERSE_LIMIT, |va, attr| {
         duplicate_page(pid, va, attr)
       });
-      mem_alloc(pid, EXCEPTION_STACK_BTM, PTE_W);
-      process_set_exception_handler(pid, asm_page_fault_handler as usize, EXCEPTION_STACK_TOP);
-      process_set_status(pid, ProcessStatus::PsRunnable);
+      match mem_alloc(pid, EXCEPTION_STACK_TOP - PAGE_SIZE, PTE_W) {
+        Ok(_) => {}
+        Err(_) => { panic!("fork: mem_alloc failed") }
+      }
+      match process_set_exception_handler(pid, asm_page_fault_handler as usize, EXCEPTION_STACK_TOP) {
+        Ok(_) => {}
+        Err(_) => { panic!("fork: process_set_exception_handler failed") }
+      }
+      match process_set_status(pid, ProcessStatus::PsRunnable) {
+        Ok(_) => {}
+        Err(_) => { panic!("fork: process_set_status failed") }
+      }
       pid as i32
     },
     Err(e) => {
