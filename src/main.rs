@@ -7,13 +7,13 @@
 #![no_std]
 #![no_main]
 
+extern crate rlibc;
 extern crate alloc;
-extern crate register;
 
 use fork::*;
 use ipc::*;
 use page_fault::*;
-use page_table::*;
+use arch::page_table::*;
 use syscall::*;
 
 #[macro_export]
@@ -29,15 +29,15 @@ macro_rules! println {
     })
 }
 
+mod arch;
 mod config;
 mod print;
 mod page_fault;
 mod syscall;
 mod fork;
 mod ipc;
-mod page_table;
-mod vm_descriptor;
 mod heap;
+
 
 #[no_mangle]
 fn _start(arg: usize) -> ! {
@@ -48,9 +48,13 @@ fn _start(arg: usize) -> ! {
     0 => { fktest() }
     1 => { pingpong() }
     2 => { heap_test() }
-    _ => {}
+    _ => unsafe { print(arg as u8 as char) }
   }
-  panic!("main returned");
+  match process_destroy(0) {
+    Ok(_) => {},
+    Err(_) => {},
+  }
+  loop {};
 }
 
 fn pingpong() {
@@ -111,5 +115,14 @@ fn heap_test() {
     a.push(4);
     a.push(5);
     println!("parent {}", a.len());
+  }
+}
+
+unsafe fn print(a: char) {
+  loop {
+    print!("{}", a);
+    for _ in 0..0x1000000 {
+      asm!("nop");
+    }
   }
 }

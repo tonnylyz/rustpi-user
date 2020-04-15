@@ -1,16 +1,24 @@
 .PHONY: all clean user
 
-all: user
+ARM:=1
+#RISCV:=1
+
+ifdef ARM
+ARCH:= aarch64
+CROSS:= ${ARCH}-elf-
+endif
+ifdef RISCV
+ARCH:= riscv64
+CROSS:= ${ARCH}-unknown-elf-
+endif
+
+user:
+	cargo build --target target.${ARCH}.json -Zbuild-std=core,alloc --release
+	cp target/target.${ARCH}/release/rustpi-user rustpi-user.${ARCH}.elf
+	${CROSS}objdump -D rustpi-user.${ARCH}.elf > debug.${ARCH}.D
+	${CROSS}objdump -x rustpi-user.${ARCH}.elf > debug.${ARCH}.x
+	${CROSS}nm -n rustpi-user.${ARCH}.elf > debug.${ARCH}.nm
+	cp target/target.${ARCH}/release/rustpi-user ../rustpi/user/${ARCH}.elf
 
 clean:
 	cargo clean
-
-user:
-	cargo xbuild --target aarch64-none-elf.json --release
-	cp target/aarch64-none-elf/release/rustpi-user user.elf
-	aarch64-elf-objdump -D user.elf > debug.D
-	aarch64-elf-objdump -x user.elf > debug.x
-	aarch64-elf-nm -n user.elf > debug.nm
-	aarch64-elf-ld -r -b binary -o user.o user.elf
-	cp user.o ../rustpi/user
-	aarch64-elf-nm -n user.o

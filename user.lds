@@ -4,14 +4,15 @@ SECTIONS
     .text : {
         *(.text*)
     }
+    . = ALIGN(4096);
     .rodata : {
         *(.rodata*)
+        *(.eh_frame*)
     }
-    .data : {
-        *(.data*)
-    }
+    . = ALIGN(4096);
     .bss : {
         *(.bss*)
+        *(.sbss*)
     }
     /DISCARD/ : {
         *(.comment)

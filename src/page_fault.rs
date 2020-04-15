@@ -1,8 +1,6 @@
 use crate::config::*;
-use crate::page_table::*;
+use crate::arch::page_table::*;
 use crate::syscall::*;
-
-global_asm!(include_str!("page_fault.S"));
 
 pub fn page_fault_handler(va: usize) {
   assert_eq!(va % PAGE_SIZE, 0);

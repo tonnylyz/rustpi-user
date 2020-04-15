@@ -1,5 +1,5 @@
 use crate::config::*;
-use crate::page_table::*;
+use crate::arch::page_table::*;
 use crate::syscall::*;
 
 #[repr(C, align(32))]
@@ -37,9 +37,9 @@ pub fn send(whom: u16, value: usize, src_va: usize, attr: EntryAttribute) {
   }
 }
 
-pub fn receive(dst_va: usize) -> (u16, usize, Aarch64EntryAttribute) {
+pub fn receive(dst_va: usize) -> (u16, usize, ArchEntryAttribute) {
   ipc_receive(dst_va);
   unsafe {
-    ((*get_self_ipc()).from, (*get_self_ipc()).value, Aarch64EntryAttribute::new((*get_self_ipc()).attribute as u64))
+    ((*get_self_ipc()).from, (*get_self_ipc()).value, ArchEntryAttribute::new((*get_self_ipc()).attribute as u64))
   }
 }

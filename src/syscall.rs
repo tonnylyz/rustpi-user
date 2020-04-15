@@ -1,8 +1,6 @@
 use Error::*;
 
-use crate::page_table::*;
-
-global_asm!(include_str!("syscall.S"));
+use crate::arch::page_table::*;
 
 #[derive(Debug)]
 pub enum Error {
@@ -103,12 +101,12 @@ pub fn process_set_exception_handler(pid: u16, value: usize, sp: usize) -> Resul
 }
 
 pub fn mem_alloc(pid: u16, va: usize, attr: EntryAttribute) -> Result<(), Error> {
-  let attr = Aarch64EntryAttribute::from(attr).to_usize();
+  let attr = ArchEntryAttribute::from(attr).to_usize();
   unsafe { syscall_6(pid, va, attr).to_result() }
 }
 
 pub fn mem_map(src_pid: u16, src_va: usize, dst_pid: u16, dst_va: usize, attr: EntryAttribute) -> Result<(), Error> {
-  let attr = Aarch64EntryAttribute::from(attr).to_usize();
+  let attr = ArchEntryAttribute::from(attr).to_usize();
   unsafe { syscall_7(src_pid, src_va, dst_pid, dst_va, attr).to_result() }
 }
 
@@ -130,6 +128,6 @@ pub fn ipc_receive(dst_va: usize) {
 }
 
 pub fn ipc_can_send(pid: u16, value: usize, src_va: usize, attr: EntryAttribute) -> Result<(), Error> {
-  let attr = Aarch64EntryAttribute::from(attr).to_usize();
+  let attr = ArchEntryAttribute::from(attr).to_usize();
   unsafe { syscall_12(pid, value, src_va, attr).to_result() }
 }

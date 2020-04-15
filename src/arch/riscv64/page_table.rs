@@ -1,4 +1,4 @@
-use super::config::*;
+use crate::config::*;
 use super::vm_descriptor::*;
 
 fn read_directory_entry(l1_index: usize) -> u64 {
@@ -129,24 +129,26 @@ impl core::ops::Sub<EntryAttribute> for EntryAttribute {
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct Aarch64EntryAttribute(u64);
+pub struct ArchEntryAttribute(u64);
 
-impl Aarch64EntryAttribute {
-  pub fn new(value: u64) -> Self { Aarch64EntryAttribute(value) }
+impl ArchEntryAttribute {
+  pub fn new(value: u64) -> Self { ArchEntryAttribute(value) }
   pub fn to_usize(&self) -> usize { self.0 as usize }
 }
 
-impl core::convert::From<EntryAttribute> for Aarch64EntryAttribute {
+impl core::convert::From<EntryAttribute> for ArchEntryAttribute {
   fn from(pte: EntryAttribute) -> Self {
-    Aarch64EntryAttribute(
-      (if pte.writable {
-        PAGE_DESCRIPTOR::AP::RW_EL1_EL0
+    ArchEntryAttribute(
+      (PAGE_DESCRIPTOR::USER::True
+        + PAGE_DESCRIPTOR::R::True
+        + if pte.writable {
+        PAGE_DESCRIPTOR::W::True
       } else {
-        PAGE_DESCRIPTOR::AP::RO_EL1_EL0
+        PAGE_DESCRIPTOR::W::False
       } + if pte.executable {
-        PAGE_DESCRIPTOR::UXN::False
+        PAGE_DESCRIPTOR::X::True
       } else {
-        PAGE_DESCRIPTOR::UXN::True
+        PAGE_DESCRIPTOR::X::False
       } + if pte.copy_on_write {
         PAGE_DESCRIPTOR::COW::True
       } else {
@@ -160,13 +162,13 @@ impl core::convert::From<EntryAttribute> for Aarch64EntryAttribute {
   }
 }
 
-impl core::convert::From<Aarch64EntryAttribute> for EntryAttribute {
-  fn from(apte: Aarch64EntryAttribute) -> Self {
+impl core::convert::From<ArchEntryAttribute> for EntryAttribute {
+  fn from(apte: ArchEntryAttribute) -> Self {
     use register::*;
     let reg = LocalRegisterCopy::<u64, PAGE_DESCRIPTOR::Register>::new(apte.0);
     EntryAttribute {
-      executable: !reg.is_set(PAGE_DESCRIPTOR::UXN),
-      writable: reg.matches_all(PAGE_DESCRIPTOR::AP::RW_EL1_EL0),
+      executable: reg.is_set(PAGE_DESCRIPTOR::X),
+      writable: reg.is_set(PAGE_DESCRIPTOR::W),
       copy_on_write: reg.is_set(PAGE_DESCRIPTOR::COW),
       shared: reg.is_set(PAGE_DESCRIPTOR::LIB),
     }
@@ -186,7 +188,7 @@ pub const PTE_LIB: EntryAttribute = EntryAttribute::shared();
 
 pub fn query(va: usize) -> Option<EntryAttribute> {
   if let Some(pte) = read_page_table_entry(va) {
-    Some(EntryAttribute::from(Aarch64EntryAttribute(pte)))
+    Some(EntryAttribute::from(ArchEntryAttribute(pte)))
   } else {
     None
   }
@@ -195,12 +197,12 @@ pub fn query(va: usize) -> Option<EntryAttribute> {
 pub fn traverse<F>(limit: usize, f: F) where F: Fn(usize, EntryAttribute) -> () {
   for l1x in 0..(PAGE_SIZE / WORD_SIZE) {
     let l1e = read_directory_entry(l1x);
-    if l1e & 0b11 == 0 {
+    if l1e & 0b1 == 0 {
       continue;
     }
     for l2x in 0..(PAGE_SIZE / WORD_SIZE) {
       let l2e = read_level_1_entry(l1x, l2x);
-      if l2e & 0b11 == 0 {
+      if l2e & 0b1 == 0 {
         continue;
       }
       for l3x in 0..(PAGE_SIZE / WORD_SIZE) {
@@ -209,8 +211,8 @@ pub fn traverse<F>(limit: usize, f: F) where F: Fn(usize, EntryAttribute) -> () 
           return;
         }
         let l3e = read_level_2_entry(l1x, l2x, l3x);
-        if l3e & 0b11 != 0 {
-          f(va, EntryAttribute::from(Aarch64EntryAttribute(l3e)));
+        if l3e & 0b1 != 0 {
+          f(va, EntryAttribute::from(ArchEntryAttribute(l3e)));
         }
       }
     }
