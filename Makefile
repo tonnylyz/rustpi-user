@@ -1,24 +1,14 @@
-.PHONY: all clean user
+.PHONY: all clean aarch64 riscv64
 
-ARM:=1
-#RISCV:=1
+all: aarch64 riscv64
 
-ifdef ARM
-ARCH:= aarch64
-CROSS:= ${ARCH}-elf-
-endif
-ifdef RISCV
-ARCH:= riscv64
-CROSS:= ${ARCH}-unknown-elf-
-endif
+aarch64:
+	cargo build --target target.aarch64.json -Zbuild-std=core,alloc --release
+	cp target/target.aarch64/release/rustpi-user aarch64.elf
 
-user:
-	cargo build --target target.${ARCH}.json -Zbuild-std=core,alloc --release
-	cp target/target.${ARCH}/release/rustpi-user rustpi-user.${ARCH}.elf
-	${CROSS}objdump -D rustpi-user.${ARCH}.elf > debug.${ARCH}.D
-	${CROSS}objdump -x rustpi-user.${ARCH}.elf > debug.${ARCH}.x
-	${CROSS}nm -n rustpi-user.${ARCH}.elf > debug.${ARCH}.nm
-	cp target/target.${ARCH}/release/rustpi-user ../rustpi/user/${ARCH}.elf
+riscv64:
+	cargo build --target target.riscv64.json -Zbuild-std=core,alloc --release
+	cp target/target.riscv64/release/rustpi-user riscv64.elf
 
 clean:
 	cargo clean
