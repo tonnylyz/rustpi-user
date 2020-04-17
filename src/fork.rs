@@ -4,24 +4,58 @@ use crate::arch::page_table::*;
 use crate::syscall::*;
 
 fn duplicate_page(pid: u16, va: usize, pte: EntryAttribute) {
-  if pte.shared {
-    match mem_map(0, va, pid, va, pte) {
-      Ok(_) => {}
-      Err(_) => { panic!("duplicate_page: mem_map failed") }
+  if cfg!(target_arch = "aarch64") {
+    if pte.shared {
+      match mem_map(0, va, pid, va, pte) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
+    } else if pte.writable && !pte.copy_on_write {
+      match mem_map(0, va, pid, va, pte - PTE_W + PTE_COW) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
+      match mem_map(0, va, 0, va, pte - PTE_W + PTE_COW) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
+    } else {
+      match mem_map(0, va, pid, va, pte) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
     }
-  } else if pte.writable && !pte.copy_on_write {
-    match mem_map(0, va, pid, va, pte - PTE_W + PTE_COW) {
-      Ok(_) => {}
-      Err(_) => { panic!("duplicate_page: mem_map failed") }
-    }
-    match mem_map(0, va, 0, va, pte - PTE_W + PTE_COW) {
-      Ok(_) => {}
-      Err(_) => { panic!("duplicate_page: mem_map failed") }
-    }
-  } else {
-    match mem_map(0, va, pid, va, pte) {
-      Ok(_) => {}
-      Err(_) => { panic!("duplicate_page: mem_map failed") }
+  } else if cfg!(target_arch = "riscv64") {
+    // Note: no copy and write for riscv64 now
+    if pte.writable {
+      let mut va_tmp = STACK_TOP - 2 * PAGE_SIZE;
+      loop {
+        if let Some(_) = query(va_tmp) {
+          va_tmp -= PAGE_SIZE;
+        } else {
+          break;
+        }
+      }
+      match mem_alloc(0, va_tmp, PTE_W) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_alloc failed") }
+      }
+      unsafe {
+        core::intrinsics::volatile_copy_memory(va_tmp as *mut u8, va as *const u8, PAGE_SIZE);
+      }
+      match mem_map(0, va_tmp, pid, va, pte) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
+      match mem_unmap(0, va_tmp) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_unmap failed") }
+      }
+    } else {
+      match mem_map(0, va, pid, va, pte) {
+        Ok(_) => {}
+        Err(_) => { panic!("duplicate_page: mem_map failed") }
+      }
     }
   }
 }
@@ -37,6 +71,12 @@ pub fn fork() -> i32 {
       0
     } else {
       traverse(TRAVERSE_LIMIT, |va, attr| {
+        if cfg!(target_arch = "riscv64") {
+          // TODO: (riscv) do not duplicate stack page
+          if va >= 0x1000000 {
+            return;
+          }
+        }
         duplicate_page(pid, va, attr)
       });
       match mem_alloc(pid, EXCEPTION_STACK_TOP - PAGE_SIZE, PTE_W) {

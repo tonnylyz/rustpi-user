@@ -1,5 +1,3 @@
-pub const RECURSIVE_PAGE_TABLE_BTM: usize = 0x3f_c000_0000;
-
 pub const IPC_PCB_SIZE: usize = 32;
 pub const IPC_LIST_BTM: usize = 0x3f_a000_0000;
 

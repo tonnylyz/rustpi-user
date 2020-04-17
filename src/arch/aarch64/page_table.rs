@@ -1,6 +1,8 @@
 use crate::config::*;
 use super::vm_descriptor::*;
 
+const RECURSIVE_PAGE_TABLE_BTM: usize = 0x3f_c000_0000;
+
 fn read_directory_entry(l1_index: usize) -> u64 {
   let l1x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
   let l2x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;

@@ -1,27 +1,23 @@
 use crate::config::*;
 use super::vm_descriptor::*;
 
+const CONFIG_READ_ONLY_LEVEL_3_PAGE_TABLE_TOP: usize = 0x40_0000_0000; // 1 GB
+const CONFIG_READ_ONLY_LEVEL_3_PAGE_TABLE_BTM: usize = 0x3f_c000_0000; // 1 GB
+const CONFIG_READ_ONLY_LEVEL_2_PAGE_TABLE_BTM: usize = 0x3f_c000_0000 - 0x20_0000; // 2 MB
+const CONFIG_READ_ONLY_LEVEL_1_PAGE_TABLE_BTM: usize = 0x3f_c000_0000 - 0x20_0000 - 0x1000; // 4 KB
+
 fn read_directory_entry(l1_index: usize) -> u64 {
-  let l1x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
-  let l2x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
-  let l3x = l1_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = CONFIG_READ_ONLY_LEVEL_1_PAGE_TABLE_BTM + l1_index * 8;
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
 fn read_level_1_entry(l1_index: usize, l2_index: usize) -> u64 {
-  let l1x = RECURSIVE_PAGE_TABLE_BTM >> PAGE_TABLE_L1_SHIFT;
-  let l2x = l1_index;
-  let l3x = l2_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = CONFIG_READ_ONLY_LEVEL_2_PAGE_TABLE_BTM + l1_index * PAGE_SIZE + l2_index * 8;
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
 fn read_level_2_entry(l1_index: usize, l2_index: usize, l3_index: usize) -> u64 {
-  let l1x = l1_index;
-  let l2x = l2_index;
-  let l3x = l3_index;
-  let ppte = RECURSIVE_PAGE_TABLE_BTM + l1x * (1 << PAGE_TABLE_L2_SHIFT) + l2x * (1 << PAGE_TABLE_L3_SHIFT) + l3x * (1 << WORD_SHIFT);
+  let ppte = CONFIG_READ_ONLY_LEVEL_3_PAGE_TABLE_BTM + l1_index * PAGE_SIZE * 512 + l2_index * PAGE_SIZE + l3_index * 8;
   unsafe { core::intrinsics::volatile_load(ppte as *const u64) }
 }
 
@@ -197,10 +193,14 @@ pub fn query(va: usize) -> Option<EntryAttribute> {
 pub fn traverse<F>(limit: usize, f: F) where F: Fn(usize, EntryAttribute) -> () {
   for l1x in 0..(PAGE_SIZE / WORD_SIZE) {
     let l1e = read_directory_entry(l1x);
-    if l1e & 0b1 == 0 {
+    if l1e & 0b1 == 0 || l1e & (1 << 4) == 0 {
       continue;
     }
     for l2x in 0..(PAGE_SIZE / WORD_SIZE) {
+      let va = (l1x << PAGE_TABLE_L1_SHIFT) + (l2x << PAGE_TABLE_L2_SHIFT);
+      if va >= limit {
+        return;
+      }
       let l2e = read_level_1_entry(l1x, l2x);
       if l2e & 0b1 == 0 {
         continue;
